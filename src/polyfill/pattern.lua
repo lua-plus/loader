@@ -15,11 +15,12 @@ function pattern.pattern(pat)
     return self
 end
 
+---@param self pattern | string
 ---@param str string
 ---@param init integer?
 ---@return integer?, integer?, string ...
 function pattern:exec(str, init)
-    local ret = table_pack(str:find(self.pat, init))
+    local ret = table_pack(pattern.find(self, str, init))
 
     local m_start, m_end = table_unpack(ret, 1, 2)
 
@@ -28,10 +29,34 @@ function pattern:exec(str, init)
     end
 
     local matches = #ret > 2 and
-        { table_unpack(ret, 2) } or
+        { table_unpack(ret, 3) } or
         { str:sub(m_start, m_end) }
 
     return m_start, m_end, table_unpack(matches)
+end
+
+---@param self pattern | string
+---@param str string
+---@param init integer?
+function pattern.find(self, str, init)
+    if type(self) == "string" then
+        return string.find(str, self, init)
+    end
+
+    return string.find(str, self.pat, init)
+end
+
+---@param self pattern | string
+---@param str string
+---@param init integer?
+---@return integer?, integer?, string[]?
+function pattern.find_packmatch(self, str, init)
+    local ret = table_pack(pattern.find(self, str, init))
+
+    local m_start, m_end = table_unpack(ret, 1, 2)
+    local matches = table_pack(table_unpack(ret, 3))
+
+    return m_start, m_end, matches
 end
 
 function pattern.tostring(self)
