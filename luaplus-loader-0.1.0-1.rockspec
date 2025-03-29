@@ -1,7 +1,7 @@
 package = "luaplus-loader"
 version = "0.1.0-1"
 source = {
-   url = "https://github.com/lua-plus/loader"
+   url = "git+https://github.com/lua-plus/loader.git"
 }
 description = {
    -- homepage = "*** please enter a project homepage ***",
@@ -9,7 +9,7 @@ description = {
 }
 build = {
    type = "make",
-   modules = {
-      ["loader"] = "build/loader.lua"
+   install_variables = {
+      INST_LUADIR="$(LUADIR)",
    }
 }

@@ -4,6 +4,11 @@ default:
 	# luabundler can be installed via npm: 
 	# npm i -g luabundler
 
+	ifeq (, $(shell which luabundler))
+		$(error "No luabundler in PATH. run $ npm i -g luabundler")
+	endif
+
+
 	# bundle
 	# isolated (no outside require())
 	# with default path
@@ -14,7 +19,7 @@ default:
 		-o build/loader.lua
 
 install:
-	cp "$(PREFIX)/build/loader.lua" "$(LUADIR)"
+	cp "build/loader.lua" "$(INST_LUADIR)/luaplus-loader.lua"
 
 clean: 
 	rm -r ./build
