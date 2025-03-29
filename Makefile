@@ -13,5 +13,8 @@ default:
 		-p "./?.lua" -p "./?/init.lua" \
 		-o build/loader.lua
 
+install:
+	cp "$(PREFIX)/build/loader.lua" "$(LUADIR)"
+
 clean: 
 	rm -r ./build
