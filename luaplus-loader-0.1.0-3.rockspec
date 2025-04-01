@@ -1,5 +1,5 @@
 package = "luaplus-loader"
-version = "0.1.0-1"
+version = "0.1.0-3"
 source = {
    url = "git+https://github.com/lua-plus/loader.git"
 }
