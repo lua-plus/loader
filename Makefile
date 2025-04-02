@@ -19,4 +19,5 @@ install: loader
 	cp loader "$(INST_LUADIR)/luaplus-loader.lua"
 
 clean: 
-	rm -r ./build
+	rm loader
+	rm luaplus-loader*.src.rock
