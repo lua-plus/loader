@@ -1,47 +1,80 @@
 local vanilla_require = require
+local searcher        = require "src.searcher"
 
---- env_aware_require acts the same as require(), except it reads/writes
---- _ENV.package.loaded instead of _G.package.loaded, and loads modules with
---- _ENV instead of _G (where _G is the original globals table, which Lua's
---- standard library uses instead of _ENV)
----@param modpath string
+---@class LuaPlus.Require
+local require = {}
+
+---@protected
+---@param modname string
+---@return string? path, string? error
+function require._find_path (modname)
+    ---@diagnostic disable-next-line:deprecated
+    local searchers = package.loaders or package.searchers
+
+    for _, s in ipairs(searchers) do
+        -- check if this is a luaplua-loader searcher
+        local aliases = searcher.instances[s]
+        
+        if aliases then
+            local modnames = searcher.permute_aliases(modname, aliases)
+
+            for _, modname in ipairs(modnames) do
+                local path = package.searchpath(modname, package.path)
+
+                if path then
+                    return path
+                end
+            end
+        end
+    end
+
+    local path, err = package.searchpath(modname, package.path)
+
+    return path, err
+end
+
+---@param modname string
+---@param env table?
 ---@return any, string?
-local function env_aware_require(modpath)
-    local loaded = package.loaded[modpath]
+function require.with_env (modname, env)
+    -- TODO does this work?
+    ---@diagnostic disable-next-line:deprecated
+    env = env or _ENV or getfenv(2)
+
+    local loaded = package.loaded[modname]
     if loaded then
         return loaded
     end
 
-    local c_path = package.searchpath(modpath, package.cpath)
+    local c_path = package.searchpath(modname, package.cpath)
     -- for C modules, just allow vanilla require behaviour
     if c_path then
-        return vanilla_require(modpath)
+        return vanilla_require(modname)
     end
 
-    local path, err = package.searchpath(modpath, package.path)
+    local path, err = require._find_path(modname)
 
     if not path then
         error(err)
     end
 
-    -- TODO does this work?
-    ---@diagnostic disable-next-line:deprecated
-    _ENV = _ENV or getfenv(2)
-
-    local chunk, err = loadfile(path, nil, _ENV)
+    local chunk, err = loadfile(path, nil, env)
 
     if not chunk then
         error(err)
     end
 
-    local mod = chunk(modpath, path)
+    if _VERSION <= "Lua 5.1" then
+        ---@diagnostic disable-next-line:deprecated
+        setfenv(chunk, env)
+    end
 
-    package.loaded[modpath] = mod
+    local mod = chunk(modname, path)
+
+    package.loaded[modname] = mod
 
     return mod, path
 end
-
-local require = {}
 
 --[[
 function require.isolated(...)
@@ -77,7 +110,7 @@ end
 
 setmetatable(require, {
     __call = function(_, ...)
-        return env_aware_require(...)
+        return require.with_env(...)
     end
 })
 

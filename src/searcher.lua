@@ -18,12 +18,13 @@ local fs_exists          = require("src.polyfill.fs.exists")
 
 
 ---@class LuaPlus.Searcher
-local searcher = {}
+local searcher = {
+    instances = setmetatable({ }, { __mode = "kv" })
+}
 
 
--- TODO make readonly
 -- default aliases
-searcher.default_alises = {
+local default_aliases = {
     -- relative matching
     { pattern("^(%.+)"), function(_, this, post)
         -- TODO implement differently if transforming as a macro
@@ -102,7 +103,7 @@ searcher.default_alises = {
 }
 
 
-searcher.aliases = table_crush(searcher.default_alises)
+searcher.aliases = table_crush(default_aliases)
 
 
 ---@protected
@@ -152,12 +153,16 @@ function searcher._match_pattern (p, modname, search_init)
 end
 
 
+-- TODO permutation should allow modifying some runtime variables:
+-- what if we want it to softly try modules?
+-- what if we want at least one to succeed?
+
 ---@protected
 ---@param modnames string[]
 ---@param p string | pattern
 ---@param replacer string | function
 ---@param search_init integer?
-function searcher._permute(modnames, p, replacer, search_init)
+function searcher._permute_pattern(modnames, p, replacer, search_init)
     search_init = search_init or 1
 
     local new_modnames = {}
@@ -170,7 +175,7 @@ function searcher._permute(modnames, p, replacer, search_init)
             for _, new_modname in ipairs(searcher._call_replacer(
                 replacer, modname, m_start, m_end, matches
             )) do
-                local further_permutations = searcher._permute(
+                local further_permutations = searcher._permute_pattern(
                     { new_modname }, p, replacer, m_end)
 
                 for _, new_modname in ipairs(further_permutations) do
@@ -204,24 +209,32 @@ function searcher._as_searcher_return(returns)
     return get_modules, table_unpack(t, 2)
 end
 
+---@param modname string
+---@param aliases LuaPlus.Searcher.Alias[]
+function searcher.permute_aliases (modname, aliases)
+    local modnames = { modname }
+
+    -- Permute modnames via aliases
+    for _, alias in ipairs(aliases) do
+        local pattern = alias[1]
+        local replacer = alias[2]
+
+        -- TODO fix typing hint here.
+        local new_modnames = searcher._permute_pattern(modnames, pattern, replacer)
+
+        if #new_modnames ~= 0 then
+            modnames = new_modnames
+        end
+    end
+
+    return modnames
+end
+
 ---@param aliases LuaPlus.Searcher.Alias[]
 function searcher.create(aliases)
     ---@param modname string
-    return function(modname)
-        local modnames = { modname }
-
-        -- Permute modnames via aliases
-        for _, alias in ipairs(aliases) do
-            local pattern = alias[1]
-            local replacer = alias[2]
-
-            -- TODO fix typing hint here.
-            local new_modnames = searcher._permute(modnames, pattern, replacer)
-
-            if #new_modnames ~= 0 then
-                modnames = new_modnames
-            end
-        end
+    local s = function(modname)
+        local modnames = searcher.permute_aliases(modname, aliases)
 
         -- return if modnames hasn't changed in any way, ie it was not permuted.
         if #modnames == 1 and modnames[1] == modname then
@@ -237,6 +250,10 @@ function searcher.create(aliases)
 
         return searcher._as_searcher_return(returns)
     end
+
+    searcher.instances[s] = aliases
+
+    return s
 end
 
 local default_searcher = searcher.create(searcher.aliases)
